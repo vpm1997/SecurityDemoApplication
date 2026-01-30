@@ -1,8 +1,8 @@
 package com.demo.web.application.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import lombok.Data;
 
 @Data
 public class RegistrationForm {
@@ -16,8 +16,8 @@ public class RegistrationForm {
     private String zip;
     private String phone;
 
-    public User toUser(PasswordEncoder encoder){
+    public User toUser(PasswordEncoder encoder) {
         return new User(username, encoder.encode(password),
-        fullname, street, city, state, zip, phone);
+                fullname, street, city, state, zip, phone);
     }
 }

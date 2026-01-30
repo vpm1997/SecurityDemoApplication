@@ -6,7 +6,6 @@ import java.util.Set;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -22,54 +21,47 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "users")
+@Table(name = "tenants")
 @Data
 @NoArgsConstructor
-public class User implements UserDetails {
+public class Tenant {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String username;
-    private String password;
-    private String fullname;
-    private String street;
-    private String city;
-    private String state;
-    private String zip;
-    private String phoneNumber;
+
+    /**
+     * Unique tenant code - used in X-Tenant-ID header for API requests.
+     */
+    private String code;
+
+    private String displayName;
 
     @ManyToMany(fetch = FetchType.EAGER, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
-        name = "user_roles",
-        joinColumns = @JoinColumn(name = "user_id"),
+        name = "tenant_roles",
+        joinColumns = @JoinColumn(name = "tenant_id"),
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<Role> roles = new HashSet<>();
 
-    public User(String username, String password, String fullname, String street, String city, String state, String zip, String phone) {
-        this.username = username;
-        this.fullname = fullname;
-        this.password = password;
-        this.street = street;
-        this.city = city;
-        this.state = state;
-        this.zip = zip;
-        this.phoneNumber = phone;
+    public Tenant(String code, String displayName) {
+        this.code = code;
+        this.displayName = displayName;
     }
 
-    @Override
+    /**
+     * Returns all authorities for this tenant: role names + all resources from each role.
+     * Used for @PreAuthorize("hasAuthority('ROLE_ORDERS')") and similar checks.
+     */
     public Collection<? extends GrantedAuthority> getAuthorities() {
         Set<GrantedAuthority> authorities = new HashSet<>();
-        
         for (Role role : roles) {
             // Add role with Spring Security prefix (e.g. USER -> ROLE_USER)
             String authority = role.getName().startsWith("ROLE_") ? role.getName() : "ROLE_" + role.getName();
             authorities.add(new SimpleGrantedAuthority(authority));
-            
-            // Add all resources/permissions from this role
             authorities.addAll(role.getResources());
         }
-        
         return authorities;
     }
 
@@ -79,25 +71,5 @@ public class User implements UserDetails {
 
     public void removeRole(Role role) {
         this.roles.remove(role);
-    }
-
-    @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
-
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return true;
     }
 }

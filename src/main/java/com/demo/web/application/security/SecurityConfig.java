@@ -1,42 +1,59 @@
 package com.demo.web.application.security;
 
-import com.demo.web.application.service.CustomUserDetailsService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.crypto.password.StandardPasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import javax.sql.DataSource;
+import com.demo.web.application.service.CustomUserDetailsService;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
+@EnableMethodSecurity(prePostEnabled = true)
+public class SecurityConfig {
 
-    @Autowired
-    private DataSource dataSource;
+    private final CustomUserDetailsService userDetailsService;
+    private final TenantHeaderFilter tenantHeaderFilter;
 
-    @Autowired
-    private CustomUserDetailsService userDetailsService;
-
-    @Override
-    protected  void configure(AuthenticationManagerBuilder auth) throws Exception{
-        auth.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
-    }
-
-    protected  void configure(HttpSecurity http) throws Exception{
-        http.authorizeRequests().antMatchers("/orders","/design").hasRole("USER").
-                antMatchers("/","/**").permitAll().and().formLogin().loginPage("/login")
-                .and().logout().logoutSuccessUrl("/");
-
+    public SecurityConfig(CustomUserDetailsService userDetailsService, TenantHeaderFilter tenantHeaderFilter) {
+        this.userDetailsService = userDetailsService;
+        this.tenantHeaderFilter = tenantHeaderFilter;
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder(){
-        return new StandardPasswordEncoder("53cr3t");
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/orders", "/design").hasRole("USER")
+                .requestMatchers("/api/**").permitAll()
+                .requestMatchers("/", "/**").permitAll()
+            )
+            .formLogin(form -> form
+                .loginPage("/login")
+                .permitAll()
+            )
+            .logout(logout -> logout
+                .logoutSuccessUrl("/")
+            )
+            .addFilterBefore(tenantHeaderFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+        return authConfig.getAuthenticationManager();
     }
 }

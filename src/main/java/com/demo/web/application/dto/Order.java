@@ -1,10 +1,10 @@
 package com.demo.web.application.dto;
 
-import lombok.Data;
-
-import javax.persistence.ManyToOne;
 import java.util.ArrayList;
 import java.util.List;
+
+import jakarta.persistence.ManyToOne;
+import lombok.Data;
 
 @Data
 public class Order {
